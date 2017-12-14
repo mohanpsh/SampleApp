@@ -75,18 +75,58 @@ app.post('/category', (req, res) => {
 
 // Get All category
 app.get('/category', (req, res) => {
+  req.app.db.models.Category.find({})
+    .exec(function(error, categories) {
+        unflatten(categories).then(function(result){
+           res.send(result);
+         }).catch(function(err){
+           res.send(err);
+         });
+    });
+});
 
-	req.app.db.models.Category.find({})
-            //.populate('parentCategory.id')
-            .populate('childCategory.id')
-            .exec(function(error, categories) {
-                console.log(JSON.stringify(categories, null, "\t"))
-                res.send(categories)
-            });
-  
-})
+
+function unflatten(arr) {
+    var httpPromise = new Promise(function(resolve,reject){
+      
+      var tree = [],
+          mappedArr = {},
+          arrElem,
+          mappedElem;
 
 
+      for (var ind in arr) {
+         arrElem = arr[ind];
+         mappedArr[arrElem._id] = {};
+         mappedArr[arrElem._id]['id'] = arrElem._id;
+         mappedArr[arrElem._id]['name'] = arrElem.name;
+        mappedArr[arrElem._id]['child_categories'] = [];
+        
+        if(arrElem.parentCategory && arrElem.parentCategory.id){
+          mappedArr[arrElem._id]['parentid'] = arrElem.parentCategory.id;
+          } else {
+            mappedArr[arrElem._id]['parentid'] = 0;
+          }
+      }
+
+      for (var id in mappedArr) {
+        if (mappedArr.hasOwnProperty(id)) {
+          mappedElem = mappedArr[id];
+          // If the element is not at the root level, add it to its parent array of children.
+          if (mappedElem.parentid) {
+            mappedArr[mappedElem['parentid']]['child_categories'].push(mappedElem);
+          }
+          // If the element is at the root level, add it to first level elements array.
+          else {
+            tree.push(mappedElem);
+          }
+        }
+      }
+      return resolve(tree);
+    });
+    return httpPromise;
+}
+                 
 
 // Add and update product
 app.post('/product', (req, res) => {
